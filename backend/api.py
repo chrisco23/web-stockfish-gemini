@@ -115,7 +115,6 @@ def analyze(req: AnalyzeRequest):
                 score_str = f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})"
                 san_pv = uci_pv_to_san(pv_uci, req.fen)
                 pv_lines[num] = f"{san_pv} {score_str}"
-    
     proc.stdin.write("quit\n"); proc.stdin.flush(); proc.wait()
     
     stockfish_lines = "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
