@@ -70,6 +70,11 @@ def uci_pv_to_san(pv_uci: str, fen: str) -> str:
         board.push(move)
     return " ".join(san_moves)
 
+def uci_to_san_first(uci: str, fen: str) -> str:
+    board = chess.Board(fen)
+    move = chess.Move.from_uci(uci)
+    return board.san(move)
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
@@ -79,13 +84,13 @@ def analyze(req: AnalyzeRequest):
     sf.set_depth(req.depth)
     sf.update_engine_parameters({"MultiPV": req.multipv})
     sf.set_fen_position(req.fen)
+
     top_moves = sf.get_top_moves(req.multipv)
+
     stockfish_lines = "\n".join(
-        f"{uci_pv_to_san(m.get('PV',''), req.fen)} ({m.get('Centipawn','?')}cp)"
+        f"{uci_to_san_first(m['Move'], req.fen)} ({m.get('Centipawn','?')}cp)"
         for m in top_moves
     )
-
-
 
     prompt = f"""
 FEN Position: {req.fen}
