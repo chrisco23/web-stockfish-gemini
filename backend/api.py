@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import stockfish
+import chess
 import google.generativeai as genai
 
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -60,6 +61,15 @@ def fen_to_ascii_simple(fen: str) -> str:
         out.append(f"{8 - rank_idx} " + " ".join(line))
     return "\n".join(out)
 
+def uci_pv_to_san(pv_uci: str, fen: str) -> str:
+    board = chess.Board(fen)
+    san_moves = []
+    for uci in pv_uci.split():
+        move = chess.Move.from_uci(uci)
+        san_moves.append(board.san(move))
+        board.push(move)
+    return " ".join(san_moves)
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
@@ -69,12 +79,13 @@ def analyze(req: AnalyzeRequest):
     sf.set_depth(req.depth)
     sf.update_engine_parameters({"MultiPV": req.multipv})
     sf.set_fen_position(req.fen)
-
     top_moves = sf.get_top_moves(req.multipv)
     stockfish_lines = "\n".join(
-        f"{m['Move']} ({m.get('Centipawn','?')}cp) PV: {m.get('PV','')[:60]}..."
+        f"{uci_pv_to_san(m.get('PV',''), req.fen)} ({m.get('Centipawn','?')}cp)"
         for m in top_moves
     )
+
+
 
     prompt = f"""
 FEN Position: {req.fen}
