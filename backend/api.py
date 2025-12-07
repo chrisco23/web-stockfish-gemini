@@ -157,7 +157,8 @@ def analyze(req: AnalyzeRequest):
     proc.stdin.flush()
     proc.wait()
     
-    stockfish_lines = "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
+    stockfish_lines = f"Move {move_number}: \n" + "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
+
     print(f"FINAL STOCKFISH TO GEMINI: {stockfish_lines}")
 
     prompt = f"""FEN: {req.fen}
