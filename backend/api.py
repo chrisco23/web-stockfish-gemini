@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import subprocess
+import re
 import stockfish
 import chess
 import google.generativeai as genai
