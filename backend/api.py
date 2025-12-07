@@ -81,44 +81,56 @@ def format_eval(m):
     if abs(cp) >= 1000: return f"{'+' if cp > 0 else ''}{cp//1000}M{abs(cp)%1000//100}"
     return f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})" if cp != 0 else "= (0.00)"
 
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
         raise HTTPException(status_code=400, detail="Invalid FEN format")
 
-    sf = stockfish.Stockfish(path=STOCKFISH_PATH)
-    sf.set_depth(req.depth)
-    sf.update_engine_parameters({"MultiPV": req.multipv})
-    sf.set_fen_position(req.fen)
-
-    top_moves = sf.get_top_moves(req.multipv)
-
-    stockfish_lines = "\n".join(
-        f"{uci_to_san_first(m['Move'], req.fen)} {format_eval(m)}"
-        for m in top_moves
+    # RAW STOCKFISH UCI - FULL PV LINES
+    proc = subprocess.Popen(
+        [STOCKFISH_PATH],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, bufsize=1, universal_newlines=True
     )
+    
+    # UCI handshake
+    proc.stdin.write("uci\n"); proc.stdin.flush(); proc.stdout.readline()
+    proc.stdin.write(f"position fen {req.fen}\n"); proc.stdin.flush(); proc.stdout.readline()
+    proc.stdin.write(f"go depth {req.depth} multipv {req.multipv}\n"); proc.stdin.flush()
+    
+    pv_lines = {}
+    while True:
+        line = proc.stdout.readline()
+        if not line or "bestmove" in line: break
+        if "info depth" in line and "pv " in line:
+            pv_num = re.search(r'multipv (\d+)', line)
+            pv = re.search(r'pv ([\w\d]+(?: [\w\d]+)*)', line)
+            score = re.search(r'score cp ([-+]?\d+)', line)
+            if pv_num and pv and score:
+                num = int(pv_num.group(1))
+                pv_uci = pv.group(1).strip()
+                cp = int(score.group(1))
+                score_str = f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})"
+                san_pv = uci_pv_to_san(pv_uci, req.fen)
+                pv_lines[num] = f"{san_pv} {score_str}"
+    
+    proc.stdin.write("quit\n"); proc.stdin.flush(); proc.wait()
+    
+    stockfish_lines = "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
 
-    prompt = f"""
-FEN Position: {req.fen}
+    prompt = f"""FEN: {req.fen}
 
-Stockfish depth={req.depth}, MultiPV={req.multipv} top {req.multipv} lines (verbatim):
+Stockfish depth={req.depth} FULL PVs:
 {stockfish_lines}
 
-Explain the best moves from this position. Reference these exact Stockfish lines.
-What strategic ideas are behind each line? Who has advantage and why?
-"""
+Analyze EXACT Stockfish variations."""
+
     res = model.generate_content(prompt)
 
     return AnalyzeResponse(
-        fen=req.fen,
-        depth=req.depth,
-        multipv=req.multipv,
+        fen=req.fen, depth=req.depth, multipv=req.multipv,
         board=fen_to_ascii_simple(req.fen),
-        stockfish_lines=stockfish_lines,
-        gemini=res.text,
+        stockfish_lines=stockfish_lines, gemini=res.text
     )
-
-
-
-
 
