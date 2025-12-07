@@ -1,4 +1,4 @@
-:8080 {
+sgchess.chriscortese.net {
     root * /app/public
     php_server
 
