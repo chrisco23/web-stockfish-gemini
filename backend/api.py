@@ -89,6 +89,9 @@ def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
         raise HTTPException(status_code=400, detail="Invalid FEN format")
 
+    parts = req.fen.split()
+    move_number = int(parts[5]) 
+
     proc = subprocess.Popen(
         [STOCKFISH_PATH],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -141,7 +144,7 @@ def analyze(req: AnalyzeRequest):
                 else:
                     score_str = "(0.00)"
                 san_pv = uci_pv_to_san(pv_uci, req.fen)
-                pv_lines[num] = f"{san_pv} {score_str}"
+                pv_lines[num] = f"{score_str} {san_pv}"
     
     print("ALL STOCKFISH LINES:")
     for line in all_lines:
