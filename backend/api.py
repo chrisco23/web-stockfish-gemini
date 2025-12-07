@@ -75,6 +75,12 @@ def uci_to_san_first(uci: str, fen: str) -> str:
     move = chess.Move.from_uci(uci)
     return board.san(move)
 
+def format_eval(m):
+    cp = m.get("Centipawn")
+    if cp is None: return "?"
+    if abs(cp) >= 1000: return f"{'+' if cp > 0 else ''}{cp//1000}M{abs(cp)%1000//100}"
+    return f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})" if cp != 0 else "= (0.00)"
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
@@ -88,7 +94,7 @@ def analyze(req: AnalyzeRequest):
     top_moves = sf.get_top_moves(req.multipv)
 
     stockfish_lines = "\n".join(
-        f"{uci_to_san_first(m['Move'], req.fen)} ({m.get('Centipawn','?')}cp)"
+        f"{uci_to_san_first(m['Move'], req.fen)} {format_eval(m)}"
         for m in top_moves
     )
 
@@ -111,7 +117,4 @@ What strategic ideas are behind each line? Who has advantage and why?
         stockfish_lines=stockfish_lines,
         gemini=res.text,
     )
-
-
-
 
