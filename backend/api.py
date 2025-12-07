@@ -83,6 +83,7 @@ def format_eval(m):
     if abs(cp) >= 1000: return f"{'+' if cp > 0 else ''}{cp//1000}M{abs(cp)%1000//100}"
     return f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})" if cp != 0 else "= (0.00)"
 
+
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
@@ -94,13 +95,22 @@ def analyze(req: AnalyzeRequest):
         text=True, bufsize=1, universal_newlines=True
     )
     
+    # === ADD THESE 3 LINES ===
+    print("=== STOCKFISH DEBUG ===")
+    print(f"FEN: {req.fen}")
+    print(f"Depth: {req.depth}, MultiPV: {req.multipv}")
+    # === END ADD ===
+    
     proc.stdin.write("uci\n"); proc.stdin.flush(); proc.stdout.readline()
     proc.stdin.write(f"position fen {req.fen}\n"); proc.stdin.flush(); proc.stdout.readline()
     proc.stdin.write(f"go depth {req.depth} multipv {req.multipv}\n"); proc.stdin.flush()
     
     pv_lines = {}
+    all_lines = []  # CAPTURE ALL OUTPUT
+    
     while True:
         line = proc.stdout.readline()
+        all_lines.append(line.strip())  # SAVE EVERY LINE
         if not line or "bestmove" in line: 
             break
         if "info depth" in line and "pv " in line:
@@ -115,9 +125,20 @@ def analyze(req: AnalyzeRequest):
                 score_str = f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})"
                 san_pv = uci_pv_to_san(pv_uci, req.fen)
                 pv_lines[num] = f"{san_pv} {score_str}"
+    
+    # === ADD THESE 7 LINES ===
+    print("ALL STOCKFISH LINES:")
+    for line in all_lines:
+        print(f"  {line}")
+    print(f"PARSED PV LINES: {len(pv_lines)}")
+    print("PARSED:", pv_lines)
+    print("=====================")
+    # === END ADD ===
+    
     proc.stdin.write("quit\n"); proc.stdin.flush(); proc.wait()
     
     stockfish_lines = "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
+    print(f"FINAL STOCKFISH TO GEMINI: {stockfish_lines}")  # LAST CHECK
 
     prompt = f"""FEN: {req.fen}
 Stockfish depth={req.depth} FULL PVs:
@@ -131,5 +152,4 @@ Analyze EXACT Stockfish variations."""
         board=fen_to_ascii_simple(req.fen),
         stockfish_lines=stockfish_lines, gemini=res.text
     )
-
 
