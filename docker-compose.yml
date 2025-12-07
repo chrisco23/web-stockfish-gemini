@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: chess_backend
+    restart: unless-stopped
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    ports:
+      - "8000:8000"   # internal; Caddy will talk to this
+    networks:
+      - chess-net
+
+  web:
+    image: dunglas/frankenphp
+    container_name: chess_web
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "8080:8080"   # public HTTP port
+    env_file:
+      - .env          # for CADDY_HOSTNAME etc. if you want
+    environment:
+      - CADDY_HOSTNAME=${CADDY_HOSTNAME:-localhost}
+    volumes:
+      - ./frontend:/app/public
+      - ./Caddyfile:/etc/frankenphp/Caddyfile
+    depends_on:
+      - backend
+    networks:
+      - chess-net
+
+networks:
+  chess-net:
+    driver: bridge
+

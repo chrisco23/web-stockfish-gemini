@@ -1,0 +1,16 @@
+:8080 {
+    root * /app/public
+    php_server
+
+    @api path /api/*
+    handle @api {
+        uri strip_prefix /api
+        reverse_proxy backend:8000
+    }
+
+    handle {
+        try_files {path} /index.php
+        file_server
+    }
+}
+
