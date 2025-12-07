@@ -24,7 +24,7 @@ services:
       - CADDY_HOSTNAME=${CADDY_HOSTNAME:-localhost}
     volumes:
       - ./frontend:/app/public
-      - ./Caddyfile:/etc/frankenphp/Caddyfile
+      - ./Caddyfile.dev:/etc/frankenphp/Caddyfile
     depends_on:
       - backend
     networks:
