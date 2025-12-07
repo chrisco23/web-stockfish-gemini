@@ -26,14 +26,16 @@
 <div class="layout">
   <div>
     <form id="analyze-form">
-      <label>FEN:<br><textarea id="fen" placeholder="Paste FEN here">r1bqk1nr/pppp1ppp/2n4Q/2bpP3/2BP4/2N5/PPP2PPP/RNB2RK1 w kq - 0 9</textarea></label><br>
+      <label>FEN:<br><textarea id="fen" placeholder="Paste FEN here">r1bq1rk1/ppp2ppp/2n2n2/3pp3/3PP3/2N1BN2/PPP2PPP/R2Q1RK1 w - - 0 8</textarea></label><br>
       <label>Depth: <input type=number id="depth" value="12" min=1 max=40></label>
       <label>MultiPV: <input type=number id="multipv" value="3" min=1 max=10></label><br><br>
       <button type=submit>Analyze</button>
     </form>
     <div style="margin-top:1.5rem;"><h3>ASCII</h3><pre id="ascii-board">FEN loaded</pre></div>
   </div>
-  <div><h3>Lichess Board</h3><iframe id="lichess-board" src="https://lichess.org/embed/analysis?fen=r1bqk1nr/pppp1ppp/2n4Q/2bpP3/2BP4/2N5/PPP2PPP/RNB2RK1_w_kq_-_0_9&color=white&theme=brown" frameborder=0 allowfullscreen></iframe></div>
+  <div><h3>Lichess Board</h3><iframe id="lichess-board"
+  src="https://lichess.org/embed/analysis?fen=r1bq1rk1/ppp2ppp/2n2n2/3pp3/3PP3/2N1BN2/PPP2PPP/R2Q1RK1_w_-_-_0_8&color=white&theme=brown"
+  frameborder=0 allowfullscreen></iframe></div>
 </div>
 <div style="margin-top:1.5rem;"><h3>Stockfish</h3><pre id="sf"></pre></div>
 <div style="margin-top:.75rem;"><h3>Gemini</h3><pre id="gemini"></pre></div>
