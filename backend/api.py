@@ -99,17 +99,31 @@ def analyze(req: AnalyzeRequest):
     print(f"FEN: {req.fen}")
     print(f"Depth: {req.depth}, MultiPV: {req.multipv}")
     
-    proc.stdin.write("uci\n"); proc.stdin.flush(); proc.stdout.readline()
-    proc.stdin.write(f"position fen {req.fen}\n"); proc.stdin.flush(); proc.stdout.readline()
-    proc.stdin.write(f"go depth {req.depth} multipv {req.multipv}\n"); proc.stdin.flush()
+    # FIXED: Set MultiPV FIRST
+    proc.stdin.write("uci\n")
+    proc.stdin.flush()
+    proc.stdout.readline()
+    
+    proc.stdin.write(f"setoption name MultiPV value {req.multipv}\n")
+    proc.stdin.flush()
+    proc.stdout.readline()
+    
+    proc.stdin.write(f"position fen {req.fen}\n")
+    proc.stdin.flush()
+    proc.stdout.readline()
+    
+    proc.stdin.write(f"go depth {req.depth}\n")
+    proc.stdin.flush()
     
     pv_lines = {}
     all_lines = []
     
     while True:
         line = proc.stdout.readline()
+        if not line:
+            break
         all_lines.append(line.strip())
-        if not line or "bestmove" in line: 
+        if "bestmove" in line:
             break
         if "info depth" in line and "pv " in line:
             multipv_match = re.search(r'multipv (\d+)', line)
@@ -120,14 +134,13 @@ def analyze(req: AnalyzeRequest):
                 num = int(multipv_match.group(1))
                 pv_uci = pv_match.group(1).strip()
                 cp = int(score_match.group(1))
-                # FIXED: Proper centipawn formatting
                 if cp > 0:
                     score_str = f"(+{cp/100:.2f})"
                 elif cp < 0:
                     score_str = f"({cp/100:.2f})"
                 else:
                     score_str = "(0.00)"
-                san_pv = uci_pv_to_san(pv_uci, req.fen)  # FIXED: Uses your SAN function
+                san_pv = uci_pv_to_san(pv_uci, req.fen)
                 pv_lines[num] = f"{san_pv} {score_str}"
     
     print("ALL STOCKFISH LINES:")
@@ -137,7 +150,9 @@ def analyze(req: AnalyzeRequest):
     print("PARSED:", pv_lines)
     print("=====================")
     
-    proc.stdin.write("quit\n"); proc.stdin.flush(); proc.wait()
+    proc.stdin.write("quit\n")
+    proc.stdin.flush()
+    proc.wait()
     
     stockfish_lines = "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
     print(f"FINAL STOCKFISH TO GEMINI: {stockfish_lines}")
@@ -151,8 +166,11 @@ Analyze these exact Stockfish lines:"""
     res = model.generate_content(prompt)
 
     return AnalyzeResponse(
-        fen=req.fen, depth=req.depth, multipv=req.multipv,
+        fen=req.fen,
+        depth=req.depth,
+        multipv=req.multipv,
         board=fen_to_ascii_simple(req.fen),
-        stockfish_lines=stockfish_lines, gemini=res.text
+        stockfish_lines=stockfish_lines,
+        gemini=res.text
     )
 
