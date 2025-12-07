@@ -83,20 +83,17 @@ def format_eval(m):
     if abs(cp) >= 1000: return f"{'+' if cp > 0 else ''}{cp//1000}M{abs(cp)%1000//100}"
     return f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})" if cp != 0 else "= (0.00)"
 
-
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
         raise HTTPException(status_code=400, detail="Invalid FEN format")
 
-    # RAW STOCKFISH UCI - FULL PV LINES
     proc = subprocess.Popen(
         [STOCKFISH_PATH],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         text=True, bufsize=1, universal_newlines=True
     )
     
-    # UCI handshake
     proc.stdin.write("uci\n"); proc.stdin.flush(); proc.stdout.readline()
     proc.stdin.write(f"position fen {req.fen}\n"); proc.stdin.flush(); proc.stdout.readline()
     proc.stdin.write(f"go depth {req.depth} multipv {req.multipv}\n"); proc.stdin.flush()
@@ -104,15 +101,17 @@ def analyze(req: AnalyzeRequest):
     pv_lines = {}
     while True:
         line = proc.stdout.readline()
-        if not line or "bestmove" in line: break
-        if "info depth" in line and "pv " in line:
-            pv_num = re.search(r'multipv (\d+)', line)
-            pv = re.search(r'pv ([\w\d]+(?: [\w\d]+)*)', line)
-            score = re.search(r'score cp ([-+]?\d+)', line)
-            if pv_num and pv and score:
-                num = int(pv_num.group(1))
-                pv_uci = pv.group(1).strip()
-                cp = int(score.group(1))
+        if not line or "bestmove" in line: 
+            break
+        if "info depth" in line and "pv " in line and "multipv " in line:
+            multipv_match = re.search(r'multipv (\d+)', line)
+            pv_match = re.search(r'pv ([\w\d]{4}(?:\s[\w\d]{4})*)', line)
+            score_match = re.search(r'score cp ([-+]?\d+)', line)
+            
+            if multipv_match and pv_match and score_match:
+                num = int(multipv_match.group(1))
+                pv_uci = pv_match.group(1).strip()
+                cp = int(score_match.group(1))
                 score_str = f"({'+' if cp > 0 else '-'}{abs(cp)/100:.2f})"
                 san_pv = uci_pv_to_san(pv_uci, req.fen)
                 pv_lines[num] = f"{san_pv} {score_str}"
@@ -122,10 +121,8 @@ def analyze(req: AnalyzeRequest):
     stockfish_lines = "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
 
     prompt = f"""FEN: {req.fen}
-
 Stockfish depth={req.depth} FULL PVs:
 {stockfish_lines}
-
 Analyze EXACT Stockfish variations."""
 
     res = model.generate_content(prompt)
@@ -135,4 +132,5 @@ Analyze EXACT Stockfish variations."""
         board=fen_to_ascii_simple(req.fen),
         stockfish_lines=stockfish_lines, gemini=res.text
     )
+
 
