@@ -18,7 +18,8 @@ services:
     restart: unless-stopped
     tty: true
     ports:
-      - "80:8080"   # public HTTP port
+      - "80:80"
+      - "443:443"
     env_file:
       - .env          # for CADDY_HOSTNAME etc. if you want
     environment:
