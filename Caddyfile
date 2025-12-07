@@ -1,4 +1,7 @@
-{ auto_https off }
+{ 
+    auto_https off
+}
+
 sgchess.chriscortese.net {
     root * /app/public
     php_server
