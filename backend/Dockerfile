@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy requirements (you can also just pip install inline)
-RUN pip install --no-cache-dir fastapi uvicorn stockfish google-generativeai
+RUN pip install --no-cache-dir fastapi uvicorn stockfish google-generativeai chess
 
 # Copy your API code
 COPY api.py .
