@@ -103,7 +103,7 @@ def analyze(req: AnalyzeRequest):
         line = proc.stdout.readline()
         if not line or "bestmove" in line: 
             break
-        if "info depth" in line and "pv " in line and "multipv " in line:
+        if "info depth" in line and "pv " in line:
             multipv_match = re.search(r'multipv (\d+)', line)
             pv_match = re.search(r'pv ([\w\d]{4}(?:\s[\w\d]{4})*)', line)
             score_match = re.search(r'score cp ([-+]?\d+)', line)
