@@ -11,7 +11,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir fastapi uvicorn stockfish google-generativeai chess
 
 # Copy your API code
-COPY api.py .
+COPY backend/api.py .
 
 EXPOSE 8000
 
