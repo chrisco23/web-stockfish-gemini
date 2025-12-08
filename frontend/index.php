@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chess Vibe Analyzer</title>
+    <title>Chess Position Analyzer</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         body {
@@ -79,12 +79,27 @@
         #gemini-output {
             background-color: #fce4ec; /* Light pink for explanation */
         }
+        /* New style for the Lichess iframe */
+        #lichess-board {
+            width: 100%;
+            height: 450px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); /* Lighter shadow for the new theme */
+            margin-bottom: 20px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>♟️ Chess Vibe Analyzer</h1>
+    <h1>♟️ Chess Position Analyzer</h1>
+    <div class="output-section" style="padding: 0;">
+        <iframe id="lichess-board"
+            src="https://lichess.org/embed/analysis?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR_w_KQkq_-_0_1&color=white&theme=brown"
+            frameborder="0" allowfullscreen>
+        </iframe>
+    </div>
 
     <div class="input-group">
         <p>Enter a FEN position, then click "Analyze" button.</p>
@@ -183,4 +198,5 @@ $(document).ready(function() {
 
 </body>
 </html>
+
 
