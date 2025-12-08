@@ -90,7 +90,18 @@ def analyze(req: AnalyzeRequest):
         raise HTTPException(status_code=400, detail="Invalid FEN format")
 
     parts = req.fen.split()
-    move_number = int(parts[5]) 
+    # The half-move number from FEN (parts[5]) is the number *of the next full move*.
+    # chess.Board is a more reliable way to get the turn and move number.
+    try:
+        board = chess.Board(req.fen)
+        # Determine the move number for the *first* move in the line.
+        # If it's White's turn, it's the current full move number.
+        # If it's Black's turn, the *next* move will be the next full move number, so we need to
+        # prefix with ...
+        current_move_number = board.fullmove_number
+        is_white_turn = board.turn == chess.WHITE
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid FEN board state")
 
     proc = subprocess.Popen(
         [STOCKFISH_PATH],
@@ -137,13 +148,43 @@ def analyze(req: AnalyzeRequest):
                 num = int(multipv_match.group(1))
                 pv_uci = pv_match.group(1).strip()
                 cp = int(score_match.group(1))
+                
+                # --- START OF MODIFICATION ---
+                # Format the full PV string with move numbers
+                board_copy = chess.Board(req.fen)
+                san_moves = []
+                
+                # Prepend move number and optional '...' for Black's turn
+                if board_copy.turn == chess.BLACK:
+                    san_moves.append(f"{board_copy.fullmove_number}...")
+                elif board_copy.turn == chess.WHITE:
+                    san_moves.append(f"{board_copy.fullmove_number}.")
+                    
+                # Convert moves to SAN and include move numbers as required
+                for uci in pv_uci.split():
+                    move = chess.Move.from_uci(uci)
+                    san_moves.append(board_copy.san(move))
+                    board_copy.push(move)
+                    
+                    # If it's now White's turn, add the *next* move number.
+                    if board_copy.turn == chess.WHITE:
+                        san_moves.append(f"{board_copy.fullmove_number}.")
+                
+                san_pv = " ".join(san_moves).strip()
+                # Clean up any trailing move numbers if the line ends mid-move
+                # Example: "1. e4 e5 2." -> "1. e4 e5"
+                san_pv = re.sub(r'\s\d+\.$|\s\d+\.\.\.$', '', san_pv).strip()
+
+                # --- END OF MODIFICATION ---
+                
                 if cp > 0:
                     score_str = f"(+{cp/100:.2f})"
                 elif cp < 0:
                     score_str = f"({cp/100:.2f})"
                 else:
                     score_str = "(0.00)"
-                san_pv = uci_pv_to_san(pv_uci, req.fen)
+                    
+                # The final line includes the score and the SAN moves with move numbers
                 pv_lines[num] = f"{score_str} {san_pv}"
     
     print("ALL STOCKFISH LINES:")
@@ -157,7 +198,8 @@ def analyze(req: AnalyzeRequest):
     proc.stdin.flush()
     proc.wait()
     
-    stockfish_lines = f"Move {move_number}: \n" + "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1)])
+    # Just join the lines without a generic "Move X:" prefix since the numbers are now in the lines.
+    stockfish_lines = "\n".join([pv_lines.get(i, "") for i in range(1, req.multipv + 1) if pv_lines.get(i, "")])
 
     print(f"FINAL STOCKFISH TO GEMINI: {stockfish_lines}")
 
@@ -177,5 +219,8 @@ Analyze these exact Stockfish lines:"""
         stockfish_lines=stockfish_lines,
         gemini=res.text
     )
+
+
+
 
 
