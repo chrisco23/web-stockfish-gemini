@@ -1,71 +1,186 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Stockfish + Gemini Chess Analyzer</title>
-  <style>
-    body{font-family:system-ui;max-width:1000px;margin:2rem auto;padding:0 1rem;background:#111;color:#eee;}
-    .layout{display:grid;grid-template-columns:420px 1fr;grid-gap:1.5rem;}
-    textarea{width:100%;height:4em;padding:.5rem;font-family:monospace;background:#181818;color:#eee;border:1px solid #444;border-radius:4px;}
-    input[type=number]{width:4em;padding:.2rem;background:#181818;color:#eee;border:1px solid #444;border-radius:4px;}
-    button{padding:.4rem .9rem;background:#2b6cb0;color:#fff;border:1px solid #555;border-radius:4px;cursor:pointer;}
-    #ascii-board,#sf,#gemini{background:#181818;color:#e2e8f0;padding:.75rem;border-radius:4px;font-family:monospace;white-space:pre-wrap;border:1px solid #333;margin-top:.75rem;}
-    #lichess-board{width:100%;height:450px;border-radius:8px;border:1px solid #333;box-shadow:0 0 20px rgba(0,0,0,.5);}
-    #loading{display:none;font-size:24px;color:#888;text-align:center;padding:2rem;background:#181818;border:1px solid #444;border-radius:4px;margin:1rem 0;}
-    .loading{animation:pulse 1.5s infinite;}
-    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Vibe Analyzer</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1, h2 {
+            color: #4CAF50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .output-section {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        #loading {
+            color: #FF9800;
+            font-weight: bold;
+            display: none; /* Initially hidden */
+        }
+        /* Style for the code/move output sections */
+        #stockfish-output, #gemini-output {
+            white-space: pre-wrap; /* Allows text to wrap */
+            word-break: break-word;
+            padding: 10px;
+            background-color: #e8eaf6; /* Light blue background for code */
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        #gemini-output {
+            background-color: #fce4ec; /* Light pink for explanation */
+        }
+    </style>
 </head>
 <body>
-<h1>Stockfish + Gemini Chess Analyzer</h1>
 
-<!-- DEFAULTS - EASY TO FIND -->
-<script>const DEFAULT_DEPTH=12;const DEFAULT_MULTIPV=3;</script>
+<div class="container">
+    <h1>♟️ Chess Vibe Analyzer</h1>
 
-<div id="loading">Analyzing... ⏳</div>
-<div class="layout">
-  <div>
-    <form id="analyze-form">
-      <label>FEN:<br><textarea id="fen" placeholder="Paste FEN here">r1bq1rk1/ppp2ppp/2n2n2/3pp3/3PP3/2N1BN2/PPP2PPP/R2Q1RK1 w - - 0 8</textarea></label><br>
-      <label>Depth: <input type=number id="depth" value="12" min=1 max=40></label>
-      <label>MultiPV: <input type=number id="multipv" value="3" min=1 max=10></label><br><br>
-      <button type=submit>Analyze</button>
-    </form>
-    <div style="margin-top:1.5rem;"><h3>ASCII</h3><pre id="ascii-board">FEN loaded</pre></div>
-  </div>
-  <div><h3>Lichess Board</h3><iframe id="lichess-board"
-  src="https://lichess.org/embed/analysis?fen=r1bq1rk1/ppp2ppp/2n2n2/3pp3/3PP3/2N1BN2/PPP2PPP/R2Q1RK1_w_-_-_0_8&color=white&theme=brown"
-  frameborder=0 allowfullscreen></iframe></div>
+    <div class="input-group">
+        <p>Enter a FEN position, then click "Analyze" button.</p>
+        <label for="fen-input">FEN</label>
+        <input type="text" id="fen-input" value="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">
+    </div>
+
+    <div class="input-group">
+        <label for="depth-input">Stockfish Depth</label>
+        <input type="number" id="depth-input" value="18" min="1" max="40">
+    </div>
+    
+    <div class="input-group">
+        <label for="multipv-input">MultiPV (Top Lines)</label>
+        <input type="number" id="multipv-input" value="3" min="1" max="10">
+    </div>
+
+    <button id="analyze-button">Analyze</button>
+    <p id="loading">Analyzing position, please wait...</p>
+
+    <hr>
+
+    <div id="results" style="display: none;">
+        <h2>Engine Analysis</h2>
+
+        <div class="output-section">
+            <h3>Stockfish (Depth: <span id="display-depth"></span>, MultiPV: <span id="display-multipv"></span>)</h3>
+            <div id="stockfish-output"></div>
+        </div>
+
+        <div class="output-section">
+            <h3>Gemini Explanation</h3>
+            <div id="gemini-output"></div>
+        </div>
+    </div>
 </div>
-<div style="margin-top:1.5rem;"><h3>Stockfish</h3><pre id="sf"></pre></div>
-<div style="margin-top:.75rem;"><h3>Gemini</h3><pre id="gemini"></pre></div>
 
 <script>
-const f=document.getElementById('analyze-form'),a=document.getElementById('ascii-board'),s=document.getElementById('sf'),g=document.getElementById('gemini'),l=document.getElementById('lichess-board'),loading=document.getElementById('loading'),fenInput=document.getElementById('fen');
+$(document).ready(function() {
+    const API_URL = "http://localhost:8000/analyze"; // Adjust if your backend URL changes
 
-fenInput.oninput=()=>{
-  const fen=fenInput.value.trim();
-  if(fen){
-    a.textContent='FEN loaded';
-    l.src=`https://lichess.org/embed/analysis?fen=${fen.replace(/ /g,'_')}&color=white&theme=brown`;
-  }
-};
+    $('#analyze-button').click(function() {
+        const fen = $('#fen-input').val();
+        const depth = parseInt($('#depth-input').val());
+        const multipv = parseInt($('#multipv-input').val());
 
-f.onsubmit=async e=>{
-  e.preventDefault();
-  const fen=document.getElementById('fen').value.trim(),d=parseInt(document.getElementById('depth').value)||DEFAULT_DEPTH,m=parseInt(document.getElementById('multipv').value)||DEFAULT_MULTIPV;
-  if(!fen){a.textContent='Paste FEN';return;}
-  loading.style.display='block';loading.className='loading';
-  s.textContent='';g.textContent='';
-  try{
-    const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fen,d,multipv:m})});
-    if(!r.ok){a.textContent='Error:'+await r.text();loading.style.display='none';return;}
-    const data=await r.json();
-    a.textContent=data.board;s.textContent=data.stockfish_lines;g.textContent=data.gemini;
-    loading.style.display='none';
-  }catch(e){a.textContent='Failed: '+e;loading.style.display='none';}
-};
+        // Basic validation
+        if (!fen || isNaN(depth) || isNaN(multipv)) {
+            alert("Please enter valid FEN, Depth, and MultiPV values.");
+            return;
+        }
+
+        // Show loading state and hide previous results
+        $('#loading').show();
+        $('#results').hide();
+        $('#analyze-button').prop('disabled', true);
+        
+        $.ajax({
+            url: API_URL,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                fen: fen,
+                depth: depth,
+                multipv: multipv
+            }),
+            success: function(data) {
+                // Update display headers
+                $('#display-depth').text(data.depth);
+                $('#display-multipv').text(data.multipv);
+
+                // CRITICAL FIX: Replace newlines (\n) with <br> and use .html()
+                const formattedStockfishLines = data.stockfish_lines.replace(/\n/g, '<br>');
+                $('#stockfish-output').html(formattedStockfishLines);
+
+                // Display Gemini output
+                // Using .text() within a div with pre-wrap CSS for line breaks
+                $('#gemini-output').text(data.gemini);
+
+                $('#results').show();
+            },
+            error: function(xhr, status, error) {
+                const errorDetail = xhr.responseJSON ? xhr.responseJSON.detail : error;
+                alert('Analysis failed: ' + errorDetail);
+                console.error("Error details:", xhr);
+            },
+            complete: function() {
+                // Hide loading state and re-enable button
+                $('#loading').hide();
+                $('#analyze-button').prop('disabled', false);
+            }
+        });
+    });
+});
 </script>
+
 </body>
 </html>
 
