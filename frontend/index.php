@@ -124,7 +124,8 @@
 
 <script>
 $(document).ready(function() {
-    const API_URL = "http://localhost:8000/analyze"; // Adjust if your backend URL changes
+#    const API_URL = "http://localhost:8000/analyze"; // Adjust if your backend URL changes
+    const API_URL = "/api/analyze"; // Adjust if your backend URL changes
 
     $('#analyze-button').click(function() {
         const fen = $('#fen-input').val();
