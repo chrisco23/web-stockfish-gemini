@@ -1,6 +1,6 @@
 # Caddyfile.prod
 
-sgchess.chriscortese.net {
+:80 {
     # Caddy will automatically handle ports 80 and 443 to get a certificate.
     
     # 1. Reverse proxy all API calls to the backend service.
