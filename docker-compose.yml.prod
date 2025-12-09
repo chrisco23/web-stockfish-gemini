@@ -5,7 +5,7 @@ services:
     # Set the build context to the directory containing the new Dockerfile
     build:
       context: . # Or './frontend' if the Dockerfile is there
-      dockerfile: Dockerfile # Or 'frontend/Dockerfile'
+      dockerfile: frontend/Dockerfile # Or 'frontend/Dockerfile'
     
     # Expose ports as before
     ports:
