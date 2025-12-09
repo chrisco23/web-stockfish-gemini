@@ -1,27 +1,41 @@
 import os
-
 import google.generativeai as genai
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from stockfish_service import analyze_position
-
-# New Imports from your modularized files
 from utils import fen_to_ascii_simple
 
-# --- CONFIGURATION (No changes here) ---
+# --- CONFIGURATION ---
 GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("Set GOOGLE_API_KEY")
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-3-pro-preview")
+# 🛑 DEBUGGING STEP: Print status to logs 🛑
+if not GEMINI_API_KEY:
+    print("FATAL ERROR: GOOGLE_API_KEY is not set in the environment.")
+else:
+    # Print a truncated key to confirm it loaded
+    print(f"INFO: GOOGLE_API_KEY loaded successfully. Starts with: {GEMINI_API_KEY[:4]}...")
+
+# Configure the Gemini client ONCE at startup
+try:
+    if GEMINI_API_KEY:
+        genai.configure(api_key=GEMINI_API_KEY)
+except Exception as e:
+    # This catches initialization errors
+    print(f"ERROR: Failed to configure Gemini client: {e}")
+
+# The model is initialized (using a stable model)
+try:
+    model = genai.GenerativeModel("gemini-2.5-flash") 
+except Exception as e:
+    print(f"ERROR: Failed to initialize model: {e}")
+
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8080"],  # adjust when on VPS
+    allow_origins=["http://localhost:8080", "http://sgchess.chriscortese.net:8080"],  # Added your VPS domain
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,7 +58,7 @@ class AnalyzeResponse(BaseModel):
     gemini: str
 
 
-# --- API Endpoint (Now much simpler) ---
+# --- API Endpoint ---
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if len(req.fen.split()) != 6:
@@ -56,24 +70,31 @@ def analyze(req: AnalyzeRequest):
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # 2. Gemini Analysis
-    prompt = f"""FEN: {req.fen}
-Stockfish depth={req.depth} MultiPV={req.multipv}:
-{stockfish_lines}
-
-Analyze these exact Stockfish lines and explain the plans for both sides in detail:"""
-
-    res = model.generate_content(prompt)
-
+    # 2. Gemini Analysis (Single, safe call)
+    gemini_output = "Gemini API call failed (Key not set or API is unreachable)."
+    
+    if GEMINI_API_KEY:
+        try:
+            prompt = f"""
+            Analyze the following chess FEN position in a concise, insightful, and professional tone.
+            FEN: {req.fen}
+            Stockfish Analysis Lines (Depth {req.depth}, MultiPV {req.multipv}):
+            {stockfish_lines}
+            
+            Based on the FEN and the Stockfish lines, explain the key strategic themes, the best move for the player to move, and why the top lines are strong.
+            """
+            res = model.generate_content(prompt)
+            gemini_output = res.text
+        except Exception as e:
+            # Catch API errors specifically
+            gemini_output = f"Gemini API Error: {e.__class__.__name__}: {e}"
+            print(f"Gemini API Exception caught: {e}")
+    
     return AnalyzeResponse(
         fen=req.fen,
         depth=req.depth,
         multipv=req.multipv,
         board=fen_to_ascii_simple(req.fen),
         stockfish_lines=stockfish_lines,
-        gemini=res.text,
+        gemini=gemini_output, 
     )
-
-
-# Note: The `stockfish` import is no longer needed in api.py
-# The `re` and `subprocess` imports are no longer needed in api.py

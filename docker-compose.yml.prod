@@ -5,6 +5,8 @@ services:
       context: ./backend
     container_name: chess_backend
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     ports:
