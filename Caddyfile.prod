@@ -1,6 +1,6 @@
 # Caddyfile.prod (Restoring the verbose, but often more stable, syntax)
 
-:80 {
+sgchess.chriscortese.net {
     root * /app/public
     php_server
 
