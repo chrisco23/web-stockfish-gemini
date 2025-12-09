@@ -1,6 +1,8 @@
-# docker-compose.yml.prod (Forcing reliable HTTPS on standard ports 80 and 443)
+# /home/fugbert/www/web-stockfish-gemini/docker-compose.yml.prod
+
 services:
   backend:
+    # ... (No changes here, remains the same)
     build:
       context: ./backend
     container_name: chess_backend
@@ -9,17 +11,19 @@ services:
       - .env
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-    # CRITICAL CHANGE: Backend must NOT expose ports 80 or 443 to the host.
-    # It only needs its internal 8000 port for Caddy to reverse proxy to.
     ports:
-      - "8000:8000" # Only the internal port is needed publicly for the backend
+      - "8000:8000"
     volumes:
       - ./backend:/app
     networks:
       - chess-net
 
   web:
-    image: dunglas/frankenphp
+    # --- START EDITS ---
+    build:
+      context: . # Build context is root to access the frontend/Dockerfile
+      dockerfile: frontend/Dockerfile # Points to the new custom Caddy/PHP Dockerfile
+    # --- END EDITS ---
     container_name: chess_web
     restart: unless-stopped
     tty: true
@@ -28,15 +32,27 @@ services:
       - "443:443"
     environment:
       - CADDY_HOSTNAME=${CADDY_HOSTNAME:-localhost}
+      # --- CRITICAL ADDITION: CLOUDFLARE TOKEN ---
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+      # -------------------------------------------
     volumes:
+      # We rely on your existing volumes setup
       - ./frontend:/app/public
       - ./Caddyfile.prod:/etc/frankenphp/Caddyfile
+      # Add volumes for Caddy to store its certificate data
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - backend
-    # Keep the network defined for internal communication with the 'backend' service
     networks:
       - chess-net
 
 networks:
   chess-net:
     driver: bridge
+
+# --- CRITICAL ADDITION: CADDY VOLUMES ---
+volumes:
+  caddy_data:
+  caddy_config:
+# ---------------------------------------
