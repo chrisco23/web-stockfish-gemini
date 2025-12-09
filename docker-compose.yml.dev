@@ -8,6 +8,8 @@ services:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     ports:
       - "8000:8000"   # internal; Caddy will talk to this
+    volumes:
+      - ./backend:/app
     networks:
       - chess-net
 

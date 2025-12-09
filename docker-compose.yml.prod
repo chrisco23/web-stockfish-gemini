@@ -9,6 +9,8 @@ services:
     # backend should be internal only; Caddy talks to it on 8000
     ports:
       - "8000:8000"
+    volumes:
+      - ./backend:/app
     networks:
       - chess-net
 
