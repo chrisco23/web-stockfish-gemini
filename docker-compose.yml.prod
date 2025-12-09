@@ -1,58 +1,35 @@
-# /home/fugbert/www/web-stockfish-gemini/docker-compose.yml.prod
-
+version: '3.7'
 services:
-  backend:
-    # ... (No changes here, remains the same)
-    build:
-      context: ./backend
-    container_name: chess_backend
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-    networks:
-      - chess-net
-
+  # Assuming you have a 'web' or 'frankenphp' service
   web:
-    # --- START EDITS ---
+    # Set the build context to the directory containing the new Dockerfile
     build:
-      context: . # Build context is root to access the frontend/Dockerfile
-      dockerfile: frontend/Dockerfile # Points to the new custom Caddy/PHP Dockerfile
-    # --- END EDITS ---
-    container_name: chess_web
-    restart: unless-stopped
-    tty: true
+      context: . # Or './frontend' if the Dockerfile is there
+      dockerfile: Dockerfile # Or 'frontend/Dockerfile'
+    
+    # Expose ports as before
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp" # For HTTP/3
+
+    # CRITICAL: Pass the Cloudflare API Token
     environment:
-      - CADDY_HOSTNAME=${CADDY_HOSTNAME:-localhost}
-      # --- CRITICAL ADDITION: CLOUDFLARE TOKEN ---
+      # We recommend using a .env file for the token, but this works too
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      # -------------------------------------------
+    
+    # Map volumes as before
     volumes:
-      # We rely on your existing volumes setup
-      - ./frontend:/app/public
-      - ./Caddyfile.prod:/etc/frankenphp/Caddyfile
-      # Add volumes for Caddy to store its certificate data
+      # You need volumes for Caddy to store its certificate and config data
       - caddy_data:/data
       - caddy_config:/config
-    depends_on:
-      - backend
-    networks:
-      - chess-net
+      # Your application files
+      - .:/app
+    
+    # ... other settings
 
-networks:
-  chess-net:
-    driver: bridge
-
-# --- CRITICAL ADDITION: CADDY VOLUMES ---
+# Define the volumes at the bottom
 volumes:
   caddy_data:
   caddy_config:
-# ---------------------------------------
+# ... other volumes

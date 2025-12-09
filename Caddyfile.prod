@@ -1,18 +1,28 @@
-# Caddyfile.prod (Restoring the verbose, but often more stable, syntax)
-
 sgchess.chriscortese.net {
-    root * /app/public
+    # This is the domain name Caddy will obtain the cert for
+
+    # Global options block to enable the DNS challenge
+    # Caddy will automatically try the DNS challenge because you've defined the provider
+    # inside a TLS block.
+    
+    # TLS Configuration to use the DNS provider
+    tls {
+        # The first argument is the provider name (cloudflare)
+        # The second argument is the API token (taken from the environment variable)
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+        
+        # Optional: Force Caddy to use Cloudflare's own DNS resolver to check propagation
+        # This can prevent timeouts.
+        resolvers 1.1.1.1
+    }
+
+    # Your existing FrankenPHP/PHP setup
+    root * /app
     php_server
 
-    @api path /api/*
-    handle @api {
-        uri strip_prefix /api
-        reverse_proxy backend:8000
-    }
+    # Reverse proxy or other setup, if you are running Caddy as a separate service
+    # If you are using FrankenPHP directly, the above two lines are usually enough.
 
-    handle {
-        try_files {path} /index.php
-        file_server
-    }
+    # Access logging
+    log
 }
-
