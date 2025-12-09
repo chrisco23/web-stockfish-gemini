@@ -3,10 +3,10 @@ import subprocess
 
 import chess
 
+# Ensure this path is correct for your container environment
 STOCKFISH_PATH = "/usr/games/stockfish"
 
 
-# This function is the core of your old analyze route's Stockfish logic
 def analyze_position(fen: str, depth: int, multipv: int) -> str:
     """Runs Stockfish analysis and returns a formatted string of PV lines."""
 
@@ -15,6 +15,9 @@ def analyze_position(fen: str, depth: int, multipv: int) -> str:
         board = chess.Board(fen)
     except ValueError:
         raise ValueError("Invalid FEN board state")
+
+    # Determine the side to move for the score inversion logic later
+    is_black_to_move = board.turn == chess.BLACK
 
     # 2. Run Stockfish subprocess and get analysis
     proc = subprocess.Popen(
@@ -60,6 +63,11 @@ def analyze_position(fen: str, depth: int, multipv: int) -> str:
                 pv_uci = pv_match.group(1).strip()
                 cp = int(score_match.group(1))
 
+                # --- CRITICAL FIX: INVERT SCORE IF BLACK IS TO MOVE ---
+                if is_black_to_move:
+                    cp *= -1
+                # -----------------------------------------------------
+
                 # Format the full PV string with move numbers (Your existing logic)
                 board_copy = chess.Board(fen)
                 san_moves = []
@@ -88,6 +96,7 @@ def analyze_position(fen: str, depth: int, multipv: int) -> str:
                     r"\s\d+\.$|\s\d+\.\.\.$", "", san_pv
                 ).strip()  # Cleanup trailing number
 
+                # Format the score string based on the (now potentially inverted) cp value
                 if cp > 0:
                     score_str = f"(+{cp / 100:.2f})"
                 elif cp < 0:
