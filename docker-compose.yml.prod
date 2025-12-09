@@ -1,4 +1,4 @@
-# docker-compose.yml.prod (Cleaned up for stable HTTP on 8080)
+# docker-compose.yml.prod (Forcing reliable HTTPS on standard ports 80 and 443)
 services:
   backend:
     build:
@@ -9,10 +9,10 @@ services:
       - .env
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    # CRITICAL CHANGE: Backend must NOT expose ports 80 or 443 to the host.
+    # It only needs its internal 8000 port for Caddy to reverse proxy to.
     ports:
-      - "80:80"
-      - "443:443"
-      - "8000:8000"
+      - "8000:8000" # Only the internal port is needed publicly for the backend
     volumes:
       - ./backend:/app
     networks:
@@ -23,9 +23,14 @@ services:
     container_name: chess_web
     restart: unless-stopped
     tty: true
-    ports:
-      - "8080:80" # <-- This is the ONLY port mapping needed for HTTP on 8080
-      # - "443:443" <-- REMOVED THIS LINE
+    # CRITICAL CHANGE: This bypasses Docker's internal network and binds Caddy 
+    # directly to the host's 80 and 443 ports for reliable HTTPS/ACME validation.
+    network_mode: host 
+    
+    # CRITICAL CHANGE: The 'ports' section must be DELETED when using network_mode: host
+    # ports:
+    #   - "80:80" 
+    
     env_file:
       - .env
     environment:
@@ -35,6 +40,7 @@ services:
       - ./Caddyfile.prod:/etc/frankenphp/Caddyfile
     depends_on:
       - backend
+    # Keep the network defined for internal communication with the 'backend' service
     networks:
       - chess-net
 
