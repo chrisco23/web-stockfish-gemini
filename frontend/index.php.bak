@@ -78,17 +78,13 @@
         #gemini-output {
             background-color: #fce4ec;
         }
-        /* Style for the Lichess iframe */
-        #lichess-board-container {
-            display: none; 
-            margin-bottom: 20px;
-        }
         #lichess-board {
             width: 100%;
             height: 450px; 
             border-radius: 8px;
             border: 1px solid #333;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -96,6 +92,13 @@
 
 <div class="container">
     <h1>♟️ Chess Position Analyzer</h1>
+
+    <div class="output-section" style="padding: 0;">
+        <iframe id="lichess-board"
+            src="https://lichess.org/embed/analysis?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR_w_KQkq_-_0_1&color=white&theme=brown"
+            frameborder="0" allowfullscreen>
+        </iframe>
+    </div>
 
     <div class="input-group">
         <p>Enter a FEN position, then click "Analyze" button.</p>
@@ -118,13 +121,6 @@
 
     <hr>
 
-    <div id="lichess-board-container" class="output-section" style="padding: 0;">
-        <iframe id="lichess-board"
-            src="https://lichess.org/embed/analysis?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR_w_KQkq_-_0_1&color=white&theme=brown"
-            frameborder="0" allowfullscreen>
-        </iframe>
-    </div>
-    
     <div id="results" style="display: none;">
         <h2>Engine Analysis</h2>
 
@@ -142,7 +138,16 @@
 
 <script>
 $(document).ready(function() {
+    // API_URL should be set to "/api/analyze" for production on the VPS (Caddy proxy)
     const API_URL = "/api/analyze";
+
+    // Lichess Board Update Logic (Triggers immediately on input)
+    $('#fen-input').on('input', function() {
+        const fen = $(this).val();
+        // Lichess requires spaces to be replaced by underscores for the embed URL
+        const lichessUrl = `https://lichess.org/embed/analysis?fen=${fen.replace(/ /g, '_')}&color=white&theme=brown`;
+        $('#lichess-board').attr('src', lichessUrl);
+    });
 
     $('#analyze-button').click(function() {
         const fen = $('#fen-input').val();
@@ -154,15 +159,6 @@ $(document).ready(function() {
             alert("Please enter valid FEN, Depth, and MultiPV values.");
             return;
         }
-        
-        // --- START: INSTANT BOARD DRAWING ON BUTTON CLICK ---
-        // 1. Update the Lichess board with the current FEN
-        const lichessUrl = `https://lichess.org/embed/analysis?fen=${fen.replace(/ /g, '_')}&color=white&theme=brown`;
-        $('#lichess-board').attr('src', lichessUrl);
-        
-        // 2. SHOW the board container immediately
-        $('#lichess-board-container').show();
-        // --- END: INSTANT BOARD DRAWING ---
 
         // Show loading state and hide previous results
         $('#loading').show();
@@ -190,7 +186,6 @@ $(document).ready(function() {
                 // Display Gemini output
                 $('#gemini-output').text(data.gemini);
 
-                // Only show results now, board is already visible
                 $('#results').show();
             },
             error: function(xhr, status, error) {
