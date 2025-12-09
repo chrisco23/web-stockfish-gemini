@@ -23,16 +23,8 @@ services:
     container_name: chess_web
     restart: unless-stopped
     tty: true
-    # CRITICAL CHANGE: This bypasses Docker's internal network and binds Caddy 
-    # directly to the host's 80 and 443 ports for reliable HTTPS/ACME validation.
-    network_mode: host 
-    
-    # CRITICAL CHANGE: The 'ports' section must be DELETED when using network_mode: host
-    # ports:
-    #   - "80:80" 
-    
-    env_file:
-      - .env
+    ports:
+      - "8000:8000"
     environment:
       - CADDY_HOSTNAME=${CADDY_HOSTNAME:-localhost}
     volumes:
