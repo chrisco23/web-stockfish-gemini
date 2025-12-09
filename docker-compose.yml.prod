@@ -24,7 +24,8 @@ services:
     restart: unless-stopped
     tty: true
     ports:
-      - "8000:8000"
+      - "80:80"
+      - "443:443"
     environment:
       - CADDY_HOSTNAME=${CADDY_HOSTNAME:-localhost}
     volumes:
