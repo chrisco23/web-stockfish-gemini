@@ -21,6 +21,3 @@
     # Enable compression for faster transfer
     encode gzip zstd
 }
-
-
-
