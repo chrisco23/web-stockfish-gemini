@@ -1,9 +1,8 @@
 # /home/fugbert/www/web-stockfish-gemini/frontend/Dockerfile
 #
-# Stage 1: Alpine Builder - Compiles a custom Caddy/FrankenPHP binary with the Cloudflare DNS module
-FROM dunglas/frankenphp:1-php8.3-alpine-builder AS caddy_builder
-# You may need to adjust the tag (e.g., :latest-alpine-builder or specific php8.x-alpine-builder)
-# The `1-php8.3-alpine-builder` tag is often a reliable Alpine option.
+# Stage 1: Alpine Builder - Uses the latest Alpine builder tag
+# NOTE: This tag is more likely to exist than the specific '1-php8.3-alpine-builder' tag.
+FROM dunglas/frankenphp:latest-alpine-builder AS caddy_builder 
 
 # Use xcaddy to build the custom FrankenPHP binary
 RUN CGO_ENABLED=1 \
@@ -14,11 +13,12 @@ RUN CGO_ENABLED=1 \
         --with github.com/caddy-dns/cloudflare
 
 # Stage 2: Final Alpine Runtime Image
-FROM dunglas/frankenphp:1-php8.3-alpine
-# Adjust the tag here to match the builder's PHP version
+# Uses the corresponding latest Alpine runtime image
+FROM dunglas/frankenphp:latest-alpine
 
 # Copy the custom-built binary from the builder stage
 COPY --from=caddy_builder /usr/local/bin/frankenphp /usr/local/bin/frankenphp
 
-# FrankenPHP already copies your application files based on the volume in docker-compose.
-# We will rely on the `volumes` and `Caddyfile` definition in the docker-compose.yml.prod
+# FrankenPHP relies on the volume mount in docker-compose for the application files.
+# COPY commands for application files are not strictly needed here if you rely entirely 
+# on the volume mounts defined in docker-compose.yml.prod.
