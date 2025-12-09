@@ -1,35 +1,57 @@
 version: '3.7'
 services:
-  # Assuming you have a 'web' or 'frankenphp' service
-  web:
-    # Set the build context to the directory containing the new Dockerfile
+  backend:
     build:
-      context: . # Or './frontend' if the Dockerfile is there
-      dockerfile: frontend/Dockerfile # Or 'frontend/Dockerfile'
-    
-    # Expose ports as before
+      context: ./backend
+    container_name: chess_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    networks:
+      - chess-net
+
+  web:
+    # --- UPDATED BUILD: Use custom FrankenPHP Dockerfile ---
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    # ----------------------------------------------------
+    container_name: chess_web
+    restart: unless-stopped
+    tty: true
     ports:
       - "80:80"
       - "443:443"
       - "443:443/udp" # For HTTP/3
-
-    # CRITICAL: Pass the Cloudflare API Token
     environment:
-      # We recommend using a .env file for the token, but this works too
+      # --- FIX: Removed the problematic CADDY_HOSTNAME default (localhost) ---
+      # This line is kept for the Cloudflare API Token for DNS-01 challenge:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-    
-    # Map volumes as before
+      # ---------------------------------------------------------------------
     volumes:
-      # You need volumes for Caddy to store its certificate and config data
+      - ./frontend:/app/public
+      - ./Caddyfile.prod:/etc/frankenphp/Caddyfile
+      # --- ADDED: Caddy data volumes for cert storage ---
       - caddy_data:/data
       - caddy_config:/config
-      # Your application files
-      - .:/app
-    
-    # ... other settings
+      # --------------------------------------------------
+    depends_on:
+      - backend
+    networks:
+      - chess-net
 
-# Define the volumes at the bottom
+networks:
+  chess-net:
+    driver: bridge
+
+# --- ADDED: Volume definitions for Caddy ---
 volumes:
   caddy_data:
   caddy_config:
-# ... other volumes
+# -------------------------------------------
