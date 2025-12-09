@@ -10,9 +10,7 @@ services:
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     ports:
-      - "80:80"
-      - "443:443"
-      # - "8080:80"
+      - "8000:8000"
     volumes:
       - ./backend:/app
     networks:
