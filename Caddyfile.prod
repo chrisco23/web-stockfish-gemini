@@ -1,13 +1,16 @@
 # Caddyfile.prod
 
-:80 {
+http://sgchess.chriscortese.net {
     # Caddy will automatically handle ports 80 and 443 to get a certificate.
-    
+    route /api/* {
+        reverse_proxy backend:8000
+    }
+
     # 1. Reverse proxy all API calls to the backend service.
     # Note: We do NOT need 'uri strip_prefix /api' here. 
     # The PHP application sends the full path '/api/analyze' 
     # and the FastAPI app is mounted at the root '/'.
-    reverse_proxy /api/* backend:8000
+
     
     # 2. Serve files and handle PHP requests
     root * /app/public
