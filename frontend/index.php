@@ -64,28 +64,26 @@
         #loading {
             color: #FF9800;
             font-weight: bold;
-            display: none; /* Initially hidden */
+            display: none;
         }
-        /* Style for the code/move output sections */
         #stockfish-output, #gemini-output {
-            white-space: pre-wrap; /* Allows text to wrap */
+            white-space: pre-wrap;
             word-break: break-word;
             padding: 10px;
-            background-color: #e8eaf6; /* Light blue background for code */
+            background-color: #e8eaf6;
             border-radius: 4px;
             font-family: monospace;
             font-size: 14px;
         }
         #gemini-output {
-            background-color: #fce4ec; /* Light pink for explanation */
+            background-color: #fce4ec;
         }
-        /* New style for the Lichess iframe */
         #lichess-board {
             width: 100%;
-            height: 450px;
+            height: 450px; 
             border-radius: 8px;
             border: 1px solid #333;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1); /* Lighter shadow for the new theme */
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
             margin-bottom: 20px;
         }
     </style>
@@ -94,6 +92,7 @@
 
 <div class="container">
     <h1>♟️ Chess Position Analyzer</h1>
+
     <div class="output-section" style="padding: 0;">
         <iframe id="lichess-board"
             src="https://lichess.org/embed/analysis?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR_w_KQkq_-_0_1&color=white&theme=brown"
@@ -139,7 +138,16 @@
 
 <script>
 $(document).ready(function() {
-    const API_URL = "/api/analyze"; // Adjust if your backend URL changes
+    // API_URL should be set to "/api/analyze" for production on the VPS (Caddy proxy)
+    const API_URL = "/api/analyze";
+
+    // Lichess Board Update Logic (Triggers immediately on input)
+    $('#fen-input').on('input', function() {
+        const fen = $(this).val();
+        // Lichess requires spaces to be replaced by underscores for the embed URL
+        const lichessUrl = `https://lichess.org/embed/analysis?fen=${fen.replace(/ /g, '_')}&color=white&theme=brown`;
+        $('#lichess-board').attr('src', lichessUrl);
+    });
 
     $('#analyze-button').click(function() {
         const fen = $('#fen-input').val();
@@ -171,12 +179,11 @@ $(document).ready(function() {
                 $('#display-depth').text(data.depth);
                 $('#display-multipv').text(data.multipv);
 
-                // CRITICAL FIX: Replace newlines (\n) with <br> and use .html()
+                // CRITICAL FIX: Replace newlines (\n) with <br> for Stockfish output
                 const formattedStockfishLines = data.stockfish_lines.replace(/\n/g, '<br>');
                 $('#stockfish-output').html(formattedStockfishLines);
 
                 // Display Gemini output
-                // Using .text() within a div with pre-wrap CSS for line breaks
                 $('#gemini-output').text(data.gemini);
 
                 $('#results').show();
@@ -198,5 +205,3 @@ $(document).ready(function() {
 
 </body>
 </html>
-
-
