@@ -30,7 +30,7 @@ services:
       - "443:443"
       - "443:443/udp" # For HTTP/3
     environment:
-      # --- FIX: Removed the problematic CADDY_HOSTNAME default (localhost) ---
+      - CADDY_DOMAIN=sgchess.chriscortese.net
       # This line is kept for the Cloudflare API Token for DNS-01 challenge:
       - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
       # ---------------------------------------------------------------------
