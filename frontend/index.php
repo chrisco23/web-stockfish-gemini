@@ -91,12 +91,37 @@
             border: 1px solid #333;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
+        /* Style for the expandable image section */
+        #image-to-fen-section {
+            background-color: #f9f9e0; /* Light yellow background */
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px dashed #ccc;
+            margin-bottom: 20px;
+        }
+        .image-status-message {
+            margin-top: 10px;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>♟️ Chess Position Analyzer</h1>
+
+    <details id="image-to-fen-section">
+        <summary style="font-weight: bold; cursor: pointer; color: #607D8B;">
+            ✨ Optional: Convert Image to FEN
+        </summary>
+        <div style="padding-top: 15px;">
+            <p>Upload a clean screenshot of a chessboard (e.g., from Lichess or Chess.com). This feature uses an external service.</p>
+            <input type="file" id="chessImageUpload" accept="image/png, image/jpeg, image/webp">
+            <button id="convertImageButton" style="display: none; margin-top: 10px;">Convert Image to FEN</button>
+            <div id="imageStatus" class="image-status-message"></div>
+        </div>
+    </details>
+    <hr>
 
     <div class="input-group">
         <p>Enter a FEN position, then click "Analyze" button.</p>
@@ -142,36 +167,67 @@
 </div>
 
 <script>
+// --- CORE FUNCTIONALITY: ANALYZE FEN (UNCHANGED) ---
+
+// Function to convert the selected file to a pure Base64 string
+function convertFileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = reader.result;
+            // The pure Base64 string is the part after the comma
+            const base64String = dataUrl.split(',')[1]; 
+            resolve(base64String);
+        };
+        reader.onerror = error => reject(error);
+        // readAsDataURL includes the metadata prefix
+        reader.readAsDataURL(file); 
+    });
+}
+
+// --- JAVASCRIPT LOGIC ---
 $(document).ready(function() {
-    const API_URL = "/api/analyze";
+    // NOTE: This assumes your FastAPI app runs on port 8000. Adjust if needed.
+    const API_URL_ANALYZE = "/api/analyze";
+    const API_URL_CONVERT = "http://localhost:8000/convert-image"; 
+    
+    const $fenInput = $('#fen-input');
+    const $depthInput = $('#depth-input');
+    const $multipvInput = $('#multipv-input');
+    const $analyzeButton = $('#analyze-button');
+    const $loading = $('#loading');
+    const $results = $('#results');
+    const $imageUpload = $('#chessImageUpload');
+    const $convertButton = $('#convertImageButton');
+    const $imageStatus = $('#imageStatus');
+    const $lichessBoard = $('#lichess-board');
+    const $lichessBoardContainer = $('#lichess-board-container');
 
-    $('#analyze-button').click(function() {
-        const fen = $('#fen-input').val();
-        const depth = parseInt($('#depth-input').val());
-        const multipv = parseInt($('#multipv-input').val());
+    // =======================================================
+    // 1. FEN ANALYSIS LOGIC (Your existing code)
+    // =======================================================
+    $analyzeButton.click(function() {
+        const fen = $fenInput.val();
+        const depth = parseInt($depthInput.val());
+        const multipv = parseInt($multipvInput.val());
 
-        // Basic validation
         if (!fen || isNaN(depth) || isNaN(multipv)) {
             alert("Please enter valid FEN, Depth, and MultiPV values.");
             return;
         }
         
-        // --- START: INSTANT BOARD DRAWING ON BUTTON CLICK ---
-        // 1. Update the Lichess board with the current FEN
+        // Instant Board Drawing
         const lichessUrl = `https://lichess.org/embed/analysis?fen=${fen.replace(/ /g, '_')}&color=white&theme=brown`;
-        $('#lichess-board').attr('src', lichessUrl);
-        
-        // 2. SHOW the board container immediately
-        $('#lichess-board-container').show();
-        // --- END: INSTANT BOARD DRAWING ---
+        $lichessBoard.attr('src', lichessUrl);
+        $lichessBoardContainer.show();
 
         // Show loading state and hide previous results
-        $('#loading').show();
-        $('#results').hide();
-        $('#analyze-button').prop('disabled', true);
+        $loading.show();
+        $results.hide();
+        $analyzeButton.prop('disabled', true);
         
         $.ajax({
-            url: API_URL,
+            url: API_URL_ANALYZE,
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({
@@ -180,19 +236,14 @@ $(document).ready(function() {
                 multipv: multipv
             }),
             success: function(data) {
-                // Update display headers
                 $('#display-depth').text(data.depth);
                 $('#display-multipv').text(data.multipv);
 
-                // CRITICAL FIX: Replace newlines (\n) with <br> for Stockfish output
                 const formattedStockfishLines = data.stockfish_lines.replace(/\n/g, '<br>');
                 $('#stockfish-output').html(formattedStockfishLines);
-
-                // Display Gemini output
                 $('#gemini-output').text(data.gemini);
 
-                // Only show results now, board is already visible
-                $('#results').show();
+                $results.show();
             },
             error: function(xhr, status, error) {
                 const errorDetail = xhr.responseJSON ? xhr.responseJSON.detail : error;
@@ -200,12 +251,76 @@ $(document).ready(function() {
                 console.error("Error details:", xhr);
             },
             complete: function() {
-                // Hide loading state and re-enable button
-                $('#loading').hide();
-                $('#analyze-button').prop('disabled', false);
+                $loading.hide();
+                $analyzeButton.prop('disabled', false);
             }
         });
     });
+
+    // =======================================================
+    // 2. IMAGE TO FEN LOGIC (NEW CODE)
+    // =======================================================
+
+    // A. Show/Hide the Convert Button based on file selection
+    $imageUpload.on('change', function() {
+        if (this.files.length > 0) {
+            $convertButton.show();
+            $imageStatus.html(`Ready to convert: <strong>${this.files[0].name}</strong>`);
+        } else {
+            $convertButton.hide();
+            $imageStatus.html('');
+        }
+    });
+
+    // B. Handle the Image Conversion Click
+    $convertButton.click(async function() {
+        if ($imageUpload[0].files.length === 0) {
+            $imageStatus.html('<span style="color: red;">Please select an image file first.</span>');
+            return;
+        }
+        
+        const imageFile = $imageUpload[0].files[0];
+        $convertButton.prop('disabled', true).text('Converting...');
+        $imageStatus.html('Processing image to FEN...');
+        
+        try {
+            const base64Image = await convertFileToBase64(imageFile);
+            
+            const response = await fetch(API_URL_CONVERT, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image_base64: base64Image
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                const detail = result.detail || 'Unknown error';
+                $imageStatus.html(`<span style="color: red;">Conversion Failed: ${detail}</span>`);
+                return;
+            }
+
+            // SUCCESS! 
+            const newFen = result.fen;
+            $fenInput.val(newFen); // Update the main FEN input field
+            
+            $imageStatus.html(`Conversion **Successful!** FEN updated. Click **Analyze** to proceed.`);
+
+            // Optional: Auto-collapse the section after success
+            $('#image-to-fen-section').prop('open', false); 
+
+        } catch (error) {
+            console.error('Image conversion error:', error);
+            $imageStatus.html(`<span style="color: red;">An unexpected error occurred: ${error.message}</span>`);
+        } finally {
+            $convertButton.prop('disabled', false).text('Convert Image to FEN');
+        }
+    });
+
 });
 </script>
 
