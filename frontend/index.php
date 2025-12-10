@@ -33,6 +33,23 @@
         h2 {
             text-align: center;
         }
+        /* NEW: Style for PGN buttons */
+        .study-move-btn {
+            background-color: #007bff;
+            padding: 5px 10px;
+            margin-left: 10px;
+        }
+        .study-move-btn:hover {
+            background-color: #0056b3;
+        }
+        #critical-moments-list li {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-bottom: 1px solid #ddd;
+        }
+        /* NEW: Color for different issue types */
+        .blunder { color: #dc3545; font-weight: bold; }
+        .mistake { color: #ffc107; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -40,10 +57,37 @@
 <div class="main-wrapper">
     <h1>♟️ Chess Position Analyzer</h1>
     
+    <div class="pgn-analysis-section">
+        <h2>🔥 Full Game PGN Analyzer (Fast Sweep)</h2>
+
+        <div class="input-group">
+            <label for="pgn-input">Paste Game PGN</label>
+            <textarea id="pgn-input" rows="5" style="width: 100%;" placeholder="e.g., [Event '...'] 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 ..."></textarea>
+        </div>
+
+        <div id="pgn-analysis-controls" style="margin-bottom: 15px;">
+            <div style="display: inline-block; margin-right: 20px;">
+                <label for="pgn-depth-input" style="font-weight: bold;">Sweep Depth (Recommended 12-15):</label>
+                <input type="number" id="pgn-depth-input" value="15" min="10" max="25" style="width: 70px;">
+            </div>
+            <button id="analyze-pgn-button">Analyze Game Sweep</button>
+        </div>
+        
+        <p id="pgn-loading" style="display: none; color: #FF9800; font-weight: bold;">Scanning game for critical moments...</p>
+
+        <div id="pgn-results" class="output-section" style="display: none; background-color: #f3e5f5;">
+            <h3 id="pgn-summary-header"></h3>
+            <div id="critical-moments-list" style="max-height: 400px; overflow-y: auto; padding: 10px;">
+                </div>
+        </div>
+    </div>
+    
+    <hr>
+    
     <div class="board-and-controls">
         
         <div class="input-group">
-            <p>Enter a FEN position, then click "Analyze" button.</p>
+            <p>Enter a FEN position (or click a **Study Position** button above), then click "Analyze".</p>
             <label for="fen-input">FEN</label>
             <input type="text" id="fen-input" autocomplete="off" style="width: 100%;" placeholder="e.g., rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1">
         </div>
@@ -87,11 +131,14 @@
             <div id="gemini-output"></div>
         </div>
     </div>
-    </div> <script>
+</div> 
+<script>
 // --- JAVASCRIPT LOGIC ---
 $(document).ready(function() {
     const API_URL_ANALYZE = "/api/analyze";
+    const API_URL_PGN = "/api/analyze-pgn"; // NEW
 
+    // FEN Analysis Elements
     const $fenInput = $('#fen-input');
     const $depthInput = $('#depth-input');
     const $multipvInput = $('#multipv-input');
@@ -101,8 +148,18 @@ $(document).ready(function() {
     const $lichessBoard = $('#lichess-board');
     const $lichessBoardContainer = $('#lichess-board-container');
 
+    // PGN Analysis Elements (NEW)
+    const $pgnInput = $('#pgn-input');
+    const $pgnDepthInput = $('#pgn-depth-input');
+    const $analyzePgnButton = $('#analyze-pgn-button');
+    const $pgnLoading = $('#pgn-loading');
+    const $pgnResults = $('#pgn-results');
+    const $pgnSummaryHeader = $('#pgn-summary-header');
+    const $criticalMomentsList = $('#critical-moments-list');
+
+
+    // --- 1. EXISTING FEN ANALYSIS FUNCTION ---
     $analyzeButton.click(function() {
-        // Use default FEN if input is empty, otherwise use input value
         const fen = $fenInput.val() || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
         const depth = parseInt($depthInput.val());
         const multipv = parseInt($multipvInput.val());
@@ -112,7 +169,6 @@ $(document).ready(function() {
             return;
         }
 
-        // Instant Board Drawing - Restored to the original working path and encoding
         const lichessUrl = `https://lichess.org/embed/analysis?fen=${fen.replace(/ /g, '_')}`;
 
         $lichessBoard.attr('src', lichessUrl);
@@ -152,9 +208,104 @@ $(document).ready(function() {
             }
         });
     });
+
+    // --- 2. NEW PGN SWEEP FUNCTION ---
+    $analyzePgnButton.click(function() {
+        const pgn = $pgnInput.val();
+        const depth = parseInt($pgnDepthInput.val());
+
+        if (!pgn) {
+            alert("Please paste a PGN.");
+            return;
+        }
+
+        $pgnLoading.show();
+        $pgnResults.hide();
+        $analyzePgnButton.prop('disabled', true);
+
+        $.ajax({
+            url: API_URL_PGN,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                pgn: pgn,
+                depth: depth
+            }),
+            success: function(data) {
+                $pgnSummaryHeader.text(data.game_summary);
+                
+                let htmlList = '<ul>';
+                if (data.critical_moments.length === 0) {
+                    htmlList += '<li>No major mistakes or blunders found!</li>';
+                } else {
+                    data.critical_moments.forEach(moment => {
+                        // FEN needs to be URL-safe encoded for the data-fen attribute
+                        const fen_encoded = moment.fen_before.replace(/ /g, '_');
+                        const type_class = moment.type.toLowerCase(); // 'blunder' or 'mistake'
+
+                        htmlList += `
+                            <li>
+                                <span class="${type_class}">${moment.type}</span> 
+                                after move <strong>${moment.move}</strong>.
+                                (Eval loss: ${moment.delta_eval})
+                                <br>
+                                Stockfish best: <strong>${moment.best_move}</strong> 
+                                (${moment.best_eval})
+                                <button class="study-move-btn" data-fen="${fen_encoded}">Study Position</button>
+                            </li>
+                        `;
+                    });
+                }
+                htmlList += '</ul>';
+                $criticalMomentsList.html(htmlList);
+                
+                $pgnResults.show();
+            },
+            error: function(xhr, status, error) {
+                const errorDetail = xhr.responseJSON ? xhr.responseJSON.detail : error;
+                alert('PGN Analysis failed: ' + errorDetail);
+                console.error("Error details:", xhr);
+            },
+            complete: function() {
+                $pgnLoading.hide();
+                $analyzePgnButton.prop('disabled', false);
+            }
+        });
+    });
+
+    // --- 3. NEW "STUDY POSITION" CLICK HANDLER ---
+    $(document).on('click', '.study-move-btn', function() {
+        // 1. Get the FEN and decode it
+        const fen_encoded = $(this).data('fen');
+        const fen_decoded = fen_encoded.replace(/_/g, ' ');
+
+        // 2. Update the main FEN input box
+        $fenInput.val(fen_decoded);
+
+        // 3. Set the depth/multipv to high settings for deep analysis
+        $depthInput.val(25);
+        $multipvInput.val(3);
+        
+        // 4. Trigger the full FEN analysis workflow (high depth + Gemini)
+        $analyzeButton.click(); 
+
+        // 5. Scroll to the FEN input/Lichess board to show the new position
+        $('html, body').animate({ scrollTop: $('#lichess-board-container').offset().top - 100 }, 'slow');
+    });
+
+    // Initial board load (if FEN input is empty)
+    if (!$fenInput.val()) {
+        $fenInput.val("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    }
+    // Trigger an initial board display on load (without analysis)
+    const initialFen = $fenInput.val();
+    const lichessUrl = `https://lichess.org/embed/analysis?fen=${initialFen.replace(/ /g, '_')}`;
+    $lichessBoard.attr('src', lichessUrl);
+    $lichessBoardContainer.show();
 });
 </script>
 
 </body>
 </html>
+
 
