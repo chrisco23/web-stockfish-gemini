@@ -36,7 +36,7 @@ services:
       # ---------------------------------------------------------------------
     volumes:
       - ./frontend:/app/public
-      - ./Caddyfile.prod:/etc/caddy/Caddyfile
+      - ./Caddyfile.prod:/etc/frankenphp/Caddyfile
       # --- ADDED: Caddy data volumes for cert storage ---
       - caddy_data:/data
       - caddy_config:/config
