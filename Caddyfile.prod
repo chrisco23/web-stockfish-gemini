@@ -1,32 +1,38 @@
 sgchess.chriscortese.net {
-    # This is the domain name Caddy will obtain the cert for
-
-    # Global options block to enable the DNS challenge
-    # Caddy will automatically try the DNS challenge because you've defined the provider
-    # inside a TLS block.
+    # Caddy will automatically obtain and renew an HTTPS certificate 
+    # for this domain using the simple HTTP-01 challenge.
     
-    # TLS Configuration to use the DNS provider
-    tls {
-        # The first argument is the provider name (cloudflare)
-        # The second argument is the API token (taken from the environment variable)
-        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-        
-        # Optional: Force Caddy to use Cloudflare's own DNS resolver to check propagation
-        # This can prevent timeouts.
-        resolvers 1.1.1.1
-    }
-
-    # Your existing FrankenPHP/PHP setup
-    root * /app
+    # --- Frontend: FrankenPHP / PHP Handler ---
+    
+    # Set the root directory for the PHP files
+    root * /app/public
+    
+    # Serve PHP files using the built-in FrankenPHP/PHP handler
     php_server
 
-    # Reverse proxy or other setup, if you are running Caddy as a separate service
-    # If you are using FrankenPHP directly, the above two lines are usually enough.
-
-    # Access logging
+    # --- Backend: FastAPI / Python Reverse Proxy ---
+    
+    # Define a matcher for all requests starting with /api/
+    @api path /api/*
+    
+    # Handle API requests (path stripping is crucial for clean proxying)
+    handle @api {
+        # Remove the /api prefix before forwarding to the backend
+        uri strip_prefix /api
+        
+        # Forward the request to the backend container (using its service name and port)
+        reverse_proxy backend:8000
+    }
+    
+    # --- File Server / Single Page App Fallback ---
+    
+    # Handle all requests that didn't match the @api handler above
+    handle {
+        # Try serving the file, otherwise fall back to index.php (SPA/Frontend routing)
+        try_files {path} /index.php
+        file_server
+    }
+    
+    # --- Logging ---
     log
 }
-
-
-
-
