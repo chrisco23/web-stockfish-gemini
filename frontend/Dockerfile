@@ -23,3 +23,4 @@ RUN chown -R www-data:www-data /app
 
 # Expose ports
 EXPOSE 80 443
+
