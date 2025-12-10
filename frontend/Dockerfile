@@ -1,19 +1,25 @@
-# Stage 1: Final Alpine Runtime Image
-# Use the latest Alpine variant of FrankenPHP
+# Stage 1: Build Caddy with the Cloudflare DNS module
+# Use the official Caddy builder image for reliable compilation
+FROM caddy:builder-alpine AS caddy_builder
+
+# Compile a new Caddy binary with the Cloudflare DNS module
+RUN xcaddy build \
+    --output /usr/bin/caddy \
+    --with github.com/caddy-dns/cloudflare@v0.1.1
+
+# Stage 2: Final FrankenPHP Runtime Image
+# Use the small, efficient FrankenPHP base
 FROM dunglas/frankenphp:latest-alpine
 
-# Install the Cloudflare DNS challenge module into the Caddy binary.
-# The 'caddy add-package' command is available in this image and is the simplest way.
-# We must use a separate RUN command for this to work correctly.
-RUN caddy add-package github.com/caddy-dns/cloudflare@v0.1.1
+# Copy the custom Caddy binary (with Cloudflare plugin) from the builder stage
+# We overwrite the default Caddy binary in the FrankenPHP image
+COPY --from=caddy_builder /usr/bin/caddy /usr/local/bin/caddy
 
-# Copy the frontend files into the correct web root
-# We are creating the /app/public directory here and copying the contents of the local frontend directory into it.
+# Copy the frontend files into the web root
 COPY . /app/public
 
-# Set correct permissions for the web server user (www-data)
-# This prevents permission errors when PHP or Caddy tries to serve files
+# Set correct permissions
 RUN chown -R www-data:www-data /app
 
-# Expose ports (not strictly necessary but good practice)
+# Expose ports
 EXPOSE 80 443
