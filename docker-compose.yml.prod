@@ -1,46 +1,39 @@
-version: '3.7'
+version: '3.8'
+
 services:
   backend:
     build:
       context: ./backend
     container_name: chess_backend
     restart: unless-stopped
+    # Use env_file to pass secrets (GOOGLE_API_KEY)
     env_file:
       - .env
-    environment:
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     ports:
-      - "8000:8000"
+      - "8000:8000" # internal; Caddy will talk to this
     volumes:
       - ./backend:/app
     networks:
       - chess-net
 
   web:
-    # --- UPDATED BUILD: Use custom FrankenPHP Dockerfile ---
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    # ----------------------------------------------------
+    image: dunglas/frankenphp:latest # Use the standard image
     container_name: chess_web
     restart: unless-stopped
     tty: true
     ports:
+      # Expose standard HTTP/HTTPS ports
       - "80:80"
       - "443:443"
-      - "443:443/udp" # For HTTP/3
-    environment:
-      - CADDY_DOMAIN=sgchess.chriscortese.net
-      # This line is kept for the Cloudflare API Token for DNS-01 challenge:
-      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN}
-      # ---------------------------------------------------------------------
+      - "443:443/udp" # For HTTP/3 (best practice)
+    # Critical: Do NOT use CADDY_HOSTNAME. We define the domain in Caddyfile.prod.
     volumes:
       - ./frontend:/app/public
-      - ./Caddyfile.prod:/etc/caddy/Caddyfile
-      # --- ADDED: Caddy data volumes for cert storage ---
+      # CRITICAL: Mount the production Caddyfile to the correct path
+      - ./Caddyfile.prod:/etc/frankenphp/Caddyfile
+      # Add persistent volumes for Caddy's certificates and configuration
       - caddy_data:/data
       - caddy_config:/config
-      # --------------------------------------------------
     depends_on:
       - backend
     networks:
@@ -50,11 +43,6 @@ networks:
   chess-net:
     driver: bridge
 
-# --- ADDED: Volume definitions for Caddy ---
 volumes:
   caddy_data:
   caddy_config:
-# -------------------------------------------
-
-
-

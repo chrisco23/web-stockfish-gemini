@@ -1,5 +1,5 @@
 # Stage 1: Standard FrankenPHP Runtime Image
-FROM dunglas/frankenphp:latest-alpine
+FROM dunglas/frankenphp
 
 # Copy the application files into the web root
 COPY . /app/public
