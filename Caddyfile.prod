@@ -1,28 +1,23 @@
 sgchess.chriscortese.net {
     
-    # 1. Global Directives: These apply to the entire site block.
-    # Set the global document root (MUST be outside handle blocks for stable config)
+    # 1. Global Directives
     root * /app/public
     
     # --- 2. Routing Logic: Solves the 'php_server' ordering error ---
     
-    # Highest Priority: Match and handle all /api/* requests first
+    # Highest Priority: API Proxy
     handle /api/* {
-        # Remove the /api prefix before forwarding to the backend
         uri strip_prefix /api
-        
-        # Forward the request to the backend container
         reverse_proxy backend:8000
     }
     
-    # Fallback: Handle everything else (The Frontend Logic)
-    handle {
-        # Critical: Try serving the static file path first.
-        # Fall back to index.php if the file is not found (SPA routing).
-        try_files {path} /index.php
-        
-        # The php_server directive runs the PHP application.
-        php_server
+    # Fallback: Frontend Logic
+    # Use 'route' to force Caddy to accept the php_server directive order
+    route {
+        handle {
+            try_files {path} /index.php
+            php_server
+        }
     }
     
     # --- 3. Logging ---
