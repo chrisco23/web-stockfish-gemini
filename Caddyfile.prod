@@ -1,44 +1,30 @@
 sgchess.chriscortese.net {
-    # Caddy will automatically obtain and renew an HTTPS certificate 
-    # for this domain using the simple HTTP-01 challenge.
     
-    # --- Frontend: FrankenPHP / PHP Handler ---
-    
-    # Set the root directory for the PHP files
+    # 1. Global Directives: These apply to the entire site block.
+    # Set the global document root (MUST be outside handle blocks for stable config)
     root * /app/public
     
-    # Serve PHP files using the built-in FrankenPHP/PHP handler
-    php_server
-
-    # --- Backend: FastAPI / Python Reverse Proxy ---
+    # --- 2. Routing Logic: Solves the 'php_server' ordering error ---
     
-    # Define a matcher for all requests starting with /api/
-    @api path /api/*
-    
-    # Handle API requests (path stripping is crucial for clean proxying)
-    handle @api {
+    # Highest Priority: Match and handle all /api/* requests first
+    handle /api/* {
         # Remove the /api prefix before forwarding to the backend
         uri strip_prefix /api
         
-        # Forward the request to the backend container (using its service name and port)
+        # Forward the request to the backend container
         reverse_proxy backend:8000
     }
     
-    # --- File Server / Single Page App Fallback ---
-    
-    # Handle all requests that didn't match the @api handler above
+    # Fallback: Handle everything else (The Frontend Logic)
     handle {
-        # Try serving the file, otherwise fall back to index.php (SPA/Frontend routing)
+        # Critical: Try serving the static file path first.
+        # Fall back to index.php if the file is not found (SPA routing).
         try_files {path} /index.php
-        file_server
+        
+        # The php_server directive runs the PHP application.
+        php_server
     }
     
-    # --- Logging ---
+    # --- 3. Logging ---
     log
 }
-
-
-
-
-
-
