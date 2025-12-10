@@ -98,3 +98,29 @@ def analyze(req: AnalyzeRequest):
         stockfish_lines=stockfish_lines,
         gemini=gemini_output, 
     )
+
+# ADD THESE EXACT LINES AT THE BOTTOM (after AnalyzeResponse return)
+
+class PgnRequest(BaseModel):
+    pgn: str
+    depth: int = 15
+
+@app.post("/analyze-pgn")
+def analyze_pgn(req: PgnRequest):
+    from stockfish_service import analyze_pgn_sweep  # Import here if needed
+    try:
+        critical_moments = analyze_pgn_sweep(req.pgn, req.depth)
+        return {
+            "game_summary": f"Found {len(critical_moments)} critical moments",
+            "critical_moments": critical_moments
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+
+
+
+
+
+

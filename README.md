@@ -5,27 +5,34 @@ This project is a full-stack, monorepo application that provides deep chess posi
 Paste a FEN, see it on a Lichess board, get Stockfish's top lines, and receive a natural-language explanation from Gemini.
 
 ---
-
 ## ✨ Features and Improvements (New)
 
-* **Reliable Lichess Board:** Fixed the persistent 404 error by using the correct `/embed/analysis` Lichess endpoint and underscore FEN encoding.
-* **Accurate Evaluation:** **CRITICAL FIX**: Stockfish centipawn scores are now correctly **inverted** when it is Black's turn to move, providing the evaluation from Black's perspective (e.g., `-0.85` instead of `+0.85`).
+* **Full Game PGN Analyzer (Fast Sweep):** Paste a complete PGN and scan the game for blunders and mistakes based on evaluation-drop thresholds.
+* **Critical Moments List:** For each flagged move, shows:
+  * Issue type (**Blunder** / **Mistake**) and eval loss in pawns.
+  * Stockfish best move and its eval.
+  * A **Study Position** button that jumps into deep FEN analysis for that position.
+* **Reliable Lichess Board:** Uses the `/embed/analysis` Lichess endpoint with underscore-encoded FEN to avoid 404s.
+* **Accurate Evaluation:** Stockfish centipawn scores are correctly handled so evaluations are from the side-to-move’s perspective.
 * **Live FEN to Lichess board** (instant visual update).
 * “Analyzing…” text shown while the backend works.
 * **Stockfish depth 1–40** and **MultiPV 1–10** configurable via the UI.
 * **Gemini 3** explains engine lines in human chess language.
 
 ---
-
 ## 💻 Project Structure
 
 The project is structured as a monorepo for easy deployment via Docker Compose.
 
-* `frontend/index.php`: The main UI. Serves the Lichess iframe and contains JavaScript logic to call the backend API.
+* `frontend/index.php`: Main HTML/PHP UI. Hosts the Lichess iframe and form layout.
+* `frontend/app.js`: All frontend JavaScript for:
+  * FEN analysis (`/api/analyze`)
+  * Full game PGN sweep (`/api/analyze-pgn`)
+  * “Study Position” buttons wiring FEN → deep analysis.
 * `backend/`: FastAPI service containing the core logic.
-    * `api.py`: FastAPI application entry point.
-    * `stockfish_service.py`: Handles Stockfish subprocess execution, FEN parsing, SAN formatting, and **score inversion**.
-    * `utils.py`: Gemini call function and prompt handling.
+  * `api.py`: FastAPI application entry point; exposes `/analyze` and `/analyze-pgn`.
+  * `stockfish_service.py`: Handles Stockfish subprocess execution, FEN/PGN analysis, SAN formatting, and eval handling.
+  * `utils.py`: FEN ASCII rendering and UCI→SAN helpers.
 * `docker-compose.yml`: Defines the full Caddy/PHP/FastAPI stack.
 * `Caddyfile`: Caddy reverse proxy configuration.
 * `Dockerfile`: Defines the Python environment for the backend service.
@@ -60,17 +67,25 @@ For rapid development and cleaning up previous runs, the following helper comman
 
 ## 📝 Usage and Workflow
 
-1.  **Paste** a FEN into the textbox (defaults to starting position).
-2.  The Lichess board on the right **updates immediately** to that position.
-3.  Set **Depth** (default 18, recommended 12-20) and **MultiPV** (default 3).
-4.  Click **Analyze**.
-5.  While the backend is working, an **“Analyzing…”** message is visible.
-6.  When it finishes, you see:
-    * Stockfish’s top lines with accurate evaluation (inverted for Black).
-    * Gemini’s natural-language explanation.
+### Full Game PGN Analyzer (Fast Sweep)
 
-**Example FEN (Black to Move, King's Gambit):** `rnbqkbnr/pppp1ppp/8/4p3/4PP2/8/PPPP2PP/RNBQKBNR b KQkq - 0 2`
-*(Score should be negative, e.g., **(-0.64)**)*
+1. **Paste** a full game PGN into the top textarea.
+2. Set **Sweep Depth** (default 15, recommended 12–15).
+3. Click **Analyze Game Sweep**.
+4. The app scans the game and lists critical moments:
+   * Each entry shows issue type, eval loss, Stockfish best move + eval.
+   * Click **Study Position** to load that position into the FEN analyzer at higher depth (e.g., 25).
+
+### Single-Position FEN Analyzer
+
+1. **Paste** a FEN into the textbox (defaults to the starting position).
+2. The Lichess board on the right **updates immediately** to that position.
+3. Set **Depth** (default 18, recommended 12–20) and **MultiPV** (default 3).
+4. Click **Analyze**.
+5. While the backend is working, an **“Analyzing…”** message is visible.
+6. When it finishes, you see:
+   * Stockfish’s top lines with accurate evaluation.
+   * Gemini’s natural-language explanation.
 
 ---
 

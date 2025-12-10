@@ -9,3 +9,4 @@ RUN chown -R www-data:www-data /app
 
 # Expose ports (for HTTP-01 challenge)
 EXPOSE 80 443
+
